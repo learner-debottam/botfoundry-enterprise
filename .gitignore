@@ -1,0 +1,55 @@
+#############################################
+# OS / System Files
+#############################################
+.DS_Store
+Thumbs.db
+
+#############################################
+# IDE / Editor
+#############################################
+.vscode/
+.idea/
+
+#############################################
+# Node (for lambdas)
+#############################################
+node_modules/
+dist/
+build/
+*.log
+
+#############################################
+# Terraform
+#############################################
+
+# Terraform working directory
+.terraform/
+**/.terraform/
+# Terraform state files
+*.tfstate
+*.tfstate.backup
+
+# Terraform lock file (OPTIONAL: keep or ignore)
+# Recommended: KEEP for reproducibility
+# .terraform.lock.hcl
+
+# Crash logs
+crash.log
+
+#############################################
+# Terraform Providers (very important)
+#############################################
+**/.terraform/*
+**/.terraform/**
+
+#############################################
+# Environment / Secrets
+#############################################
+.env
+.env.*
+
+#############################################
+# Misc
+#############################################
+*.zip
+artifacts/

@@ -1,0 +1,173 @@
+{
+  "name": "insurance-bot",
+  "description": "Insurance claims and policy management bot",
+  "idle_session_ttl": 900,
+  "locales": {
+    "en_GB": {
+      "description": "British English locale",
+      "confidence_threshold": 0.4,
+      "voice_settings": {
+        "voice_id": "Amy",
+        "engine": "neural"
+      },
+      "slot_types": {
+        "InsuranceType": {
+          "description": "Type of insurance",
+          "values": ["Car", "Home", "Life", "Travel", "Health"]
+        },
+        "ClaimType": {
+          "description": "Type of claim",
+          "values": ["Accident", "Theft", "Damage", "Medical", "Loss"]
+        }
+      },
+      "intents": {
+        "FileClaimIntent": {
+          "description": "File an insurance claim",
+          "sample_utterances": [
+            "File a claim",
+            "I need to make a {ClaimType} claim",
+            "Report an incident"
+          ],
+          "slots": {
+            "PolicyNumber": {
+              "description": "Insurance policy number",
+              "slot_type": "AMAZON.AlphaNumeric",
+              "required": true,
+              "prompt": "What is your policy number?"
+            },
+            "ClaimType": {
+              "description": "Type of claim",
+              "slot_type": "ClaimType",
+              "required": true,
+              "prompt": "What type of claim is this?"
+            },
+            "IncidentDate": {
+              "description": "Incident date",
+              "slot_type": "AMAZON.Date",
+              "required": true,
+              "prompt": "When did the incident occur?"
+            }
+          }
+        },
+        "GetQuoteIntent": {
+          "description": "Get insurance quote",
+          "sample_utterances": [
+            "Get a quote",
+            "How much for {InsuranceType} insurance",
+            "Quote for {InsuranceType}"
+          ],
+          "slots": {
+            "InsuranceType": {
+              "description": "Insurance type",
+              "slot_type": "InsuranceType",
+              "required": true,
+              "prompt": "What type of insurance do you need?"
+            },
+            "PostCode": {
+              "description": "Postcode",
+              "slot_type": "AMAZON.PostalAddress",
+              "required": true,
+              "prompt": "What is your postcode?"
+            }
+          }
+        }
+      }
+    },
+
+    "en_US": {
+      "description": "US English locale",
+      "confidence_threshold": 0.4,
+      "voice_settings": {
+        "voice_id": "Joanna",
+        "engine": "neural"
+      },
+      "slot_types": {
+        "InsuranceType": {
+          "values": ["Auto", "Home", "Life", "Travel", "Health"]
+        },
+        "ClaimType": {
+          "values": ["Accident", "Theft", "Damage", "Medical", "Loss"]
+        }
+      },
+      "intents": {
+        "FileClaimIntent": {
+          "sample_utterances": [
+            "File a claim",
+            "I want to report a {ClaimType}",
+            "Submit a claim"
+          ],
+          "slots": {
+            "PolicyNumber": {
+              "slot_type": "AMAZON.AlphaNumeric",
+              "required": true,
+              "prompt": "What is your policy number?"
+            },
+            "ClaimType": {
+              "slot_type": "ClaimType",
+              "required": true,
+              "prompt": "What type of claim?"
+            },
+            "IncidentDate": {
+              "slot_type": "AMAZON.Date",
+              "required": true,
+              "prompt": "When did it happen?"
+            }
+          }
+        },
+        "GetQuoteIntent": {
+          "sample_utterances": [
+            "Get a quote",
+            "Quote for {InsuranceType}",
+            "Insurance price"
+          ],
+          "slots": {
+            "InsuranceType": {
+              "slot_type": "InsuranceType",
+              "required": true,
+              "prompt": "What insurance do you need?"
+            },
+            "ZipCode": {
+              "slot_type": "AMAZON.PostalAddress",
+              "required": true,
+              "prompt": "What is your ZIP code?"
+            }
+          }
+        }
+      }
+    },
+
+    "en_AU": {
+      "description": "Australian English locale",
+      "confidence_threshold": 0.4,
+      "voice_settings": {
+        "voice_id": "Olivia",
+        "engine": "neural"
+      },
+      "slot_types": {
+        "InsuranceType": {
+          "values": ["Car", "Home", "Life", "Travel"]
+        }
+      },
+      "intents": {
+        "GetQuoteIntent": {
+          "sample_utterances": [
+            "Get insurance quote",
+            "Quote for {InsuranceType}"
+          ],
+          "slots": {
+            "InsuranceType": {
+              "slot_type": "InsuranceType",
+              "required": true,
+              "prompt": "What insurance are you after?"
+            },
+            "PostCode": {
+              "slot_type": "AMAZON.PostalAddress",
+              "required": true,
+              "prompt": "What is your postcode?"
+            }
+          }
+        }
+      }
+    }
+  }
+}

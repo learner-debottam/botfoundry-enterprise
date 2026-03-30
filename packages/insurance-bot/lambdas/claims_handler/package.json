@@ -1,0 +1,16 @@
+{
+  "name": "claim-status",
+  "version": "1.0.0",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "clean": "rm -rf dist",
+    "package": "npm run clean && npm run build"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "@types/aws-lambda": "^8.10.118",
+    "@types/node": "^20.11.0",
+    "typescript": "^5.2.2"
+  }
+}

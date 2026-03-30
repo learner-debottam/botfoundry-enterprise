@@ -1,0 +1,107 @@
+{
+  "name": "pizza-order-bot",
+  "description": "Pizza ordering bot",
+  "type": "Bot",
+  "idle_session_ttl": 500,
+  "child_directed": false,
+  
+  "locales": {
+    "en_GB": {
+      "description": "British English locale",
+      "confidence_threshold": 0.4,
+
+      "slot_types": {
+        "PizzaSize": {
+          "description": "Size of pizza",
+          "value_selection_strategy": "ExpandValues",
+          "values": [
+            { "value": "Small" },
+            { "value": "Medium" },
+            { "value": "Large" },
+            { "value": "Extra Large" }
+          ]
+        },
+        "PizzaTopping": {
+          "description": "Pizza toppings",
+          "value_selection_strategy": "ExpandValues",
+          "values": [
+            { "value": "Pepperoni" },
+            { "value": "Mushroom" },
+            { "value": "Cheese" },
+            { "value": "Veggie" },
+            { "value": "Hawaiian" }
+          ]
+        },
+        "Crust": {
+          "description": "Type of crust",
+          "value_selection_strategy": "ExpandValues",
+          "values": [
+            { "value": "Thin" },
+            { "value": "Thick" },
+            { "value": "Stuffed" }
+          ]
+        }
+      },
+
+      "intents": {
+        "OrderPizza": {
+          "intent_type": "Normal",
+          "description": "Order a pizza",
+
+          "initial_response": {
+            "message": "Welcome! Let’s get your pizza order started.",
+            "variations": [
+              "Hi there! Ready to order a pizza?",
+              "Hello! What pizza would you like today?"
+            ]
+          },
+
+          "sample_utterances": [
+            "Order a pizza",
+            "I want a {PizzaSize} {PizzaTopping} pizza",
+            "Get me a pizza, please"
+          ],
+
+          "slots": {
+            "PizzaSize": {
+              "description": "Size of the pizza",
+              "slot_type": "PizzaSize",
+              "required": true,
+              "prompt": "What size pizza would you like?",
+              "message_selection_strategy": "Ordered"
+            },
+            "PizzaTopping": {
+              "description": "Pizza topping selection",
+              "slot_type": "PizzaTopping",
+              "required": true,
+              "prompt": "What toppings would you like?",
+              "message_selection_strategy": "Ordered"
+            },
+            "Crust": {
+              "description": "Crust type selection",
+              "slot_type": "Crust",
+              "required": false,
+              "prompt": "What type of crust?",
+              "message_selection_strategy": "Ordered"
+            },
+            "DeliveryTime": {
+              "description": "Delivery time",
+              "slot_type": "AMAZON.Time",
+              "required": false,
+              "prompt": "When would you like it delivered?",
+              "message_selection_strategy": "Ordered"
+            }
+          },
+
+          "closing_prompt": {
+            "message": "Your pizza order has been placed successfully.",
+            "variations": [
+              "Thanks! Your pizza is on the way.",
+              "Order confirmed! Enjoy your meal."
+            ]
+          }
+        }
+      }
+    }
+  }
+}

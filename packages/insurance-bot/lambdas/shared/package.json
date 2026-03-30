@@ -1,0 +1,12 @@
+{
+  "name": "lambdas",
+  "version": "1.0.0",
+  "scripts": {
+    "build": "tsc",
+    "clean": "rm -rf dist",
+    "package": "npm run clean && npm run build"
+  },
+  "devDependencies": {
+    "typescript": "^5.2.2"
+  }
+}
