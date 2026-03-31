@@ -1,0 +1,51 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "name": "ecommerce-assistant",
+  "description": "An e-commerce Lex bot that helps users browse products, track orders, and get shipping info.",
+  "type": "Bot",
+  "idle_session_ttl": 300,
+  "child_directed": false,
+  "logging": {
+    "enabled": true,
+    "log_level": "INFO"
+  },
+  "locales": {
+    "en_US": {
+      "description": "English (United States)",
+      "confidence_threshold": 0.70,
+      "voice_settings": {
+        "voice_id": "Matthew",
+        "engine": "neural"
+      },
+      "slot_types": {
+        "ProductCategory": {
+          "description": "E-commerce product categories",
+          "value_selection_strategy": "ExpandValues",
+          "values": [
+            { "value": "Electronics", "synonyms": ["gadgets", "devices"] },
+            { "value": "Clothing", "synonyms": ["apparel", "wear"] },
+            { "value": "Books", "synonyms": ["literature", "novels"] }
+          ]
+        }
+      },
+      "intents": {
+        "TrackOrder": {
+          "description": "Track the status of an order",
+          "intent_type": "Normal",
+          "sample_utterances": [
+            "Where is my order?",
+            "Track my package"
+          ]
+        },
+        "BrowseProducts": {
+          "description": "Browse products by category",
+          "intent_type": "Normal",
+          "sample_utterances": [
+            "Show me electronics",
+            "What clothing do you have?"
+          ]
+        }
+      }
+    }
+  }
+}
