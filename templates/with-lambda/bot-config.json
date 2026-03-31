@@ -1,0 +1,60 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "name": "banking-assistant",
+  "description": "A banking Lex bot that helps users check account balance, recent transactions and card status.",
+  "type": "Bot",
+  "idle_session_ttl": 300,
+  "child_directed": false,
+  "logging": {
+    "enabled": true,
+    "log_level": "INFO"
+  },
+  "locales": {
+    "en_US": {
+      "description": "English (United States)",
+      "confidence_threshold": 0.75,
+      "voice_settings": {
+        "voice_id": "Joanna",
+        "engine": "neural"
+      },
+      "slot_types": {
+        "AccountType": {
+          "description": "Type of bank account",
+          "value_selection_strategy": "ExpandValues",
+          "values": [
+            { "value": "Savings", "synonyms": ["saving", "savings account"] },
+            { "value": "Checking", "synonyms": ["current", "checking account"] }
+          ]
+        }
+      },
+      "intents": {
+        "CheckBalance": {
+          "description": "Retrieve the user's account balance",
+          "intent_type": "Normal",
+          "sample_utterances": [
+            "What is my account balance?",
+            "Check my balance"
+          ],
+          "fulfillment_lambda_name": "check_balance",
+          "lambda_config": {
+            "function_name": "check_balance",
+            "timeout_ms": 5000
+          }
+        },
+        "RecentTransactions": {
+          "description": "List recent transactions",
+          "intent_type": "Normal",
+          "sample_utterances": [
+            "Show me my recent transactions",
+            "Recent activity on my account"
+          ],
+          "fulfillment_lambda_name": "recent_transactions",
+          "lambda_config": {
+            "function_name": "recent_transactions",
+            "timeout_ms": 5000
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "name": "hello-world",
+  "version": "1.0.0",
+  "description": "Sample Lambda function template for Lex Bot intents",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "clean": "rm -rf dist",
+    "package": "npm run clean && npm run build",
+    "lint": "eslint . --ext .ts",
+    "test": "echo \"No tests defined yet\""
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "@types/aws-lambda": "^8.10.118",
+    "@types/node": "^20.11.0",
+    "typescript": "^5.2.2",
+    "eslint": "^8.52.0",
+    "@typescript-eslint/eslint-plugin": "^6.11.0",
+    "@typescript-eslint/parser": "^6.11.0"
+  },
+  "engines": {
+    "node": ">= 20.0.0"
+  }
+}
