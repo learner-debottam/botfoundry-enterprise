@@ -21,7 +21,7 @@ output "lex_bot_id" {
 
 output "lex_bot_arn" {
   description = "The ARN of the Lex bot"
-  value       = module.lex.arn
+  value       = module.lex.bot_arn
 }
 
 output "cloudwatch_log_group_arn" {
