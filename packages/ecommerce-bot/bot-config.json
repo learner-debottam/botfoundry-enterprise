@@ -1,9 +1,9 @@
 {
   "name": "ecommerce-bot",
-  "idle_session_ttl": 300,
+  "idle_session_ttl": 500,
   "locales": {
-    "en_US": {
-      "description": "English (US)",
+    "en_GB": {
+      "description": "English (GB)",
       "confidence_threshold": 0.75,
       "intents": {}
     }
