@@ -120,7 +120,7 @@ locals {
               0,
               min(2, length(lookup(intent_data.closing_prompt, "variations", [])))
             )
-            : []
+            : [] 
           )
 
           ssml_message = lookup(intent_data.closing_prompt, "ssml_message", "")

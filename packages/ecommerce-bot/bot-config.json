@@ -10,8 +10,8 @@
     "log_level": "INFO"
   },
   "locales": {
-    "en_US": {
-      "description": "English (United States)",
+    "en_GB": {
+      "description": "British English locale",
       "confidence_threshold": 0.75,
       "voice_settings": {
         "voice_id": "Joanna",
