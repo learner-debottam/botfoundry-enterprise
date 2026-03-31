@@ -1,0 +1,343 @@
+# Pull request validation for the lex-bot-platform monorepo.
+# - Detects touched application packages under packages/*
+# - Runs Node (npm ci, lint, typecheck, build, test) for every package.json under each changed package
+# - Runs Terraform fmt, Checkov, init, validate, and plan (S3 + DynamoDB) per package × environment
+# - Uploads plan binaries as workflow artifacts for traceability
+#
+# Required repository configuration (summary):
+# - Secrets: AWS_ROLE_TO_ASSUME or AWS_ASSUME_ROLE (OIDC-enabled IAM role ARN)
+# - Variables (optional): TF_STATE_BUCKET, TF_LOCK_TABLE, AWS_REGION
+# - infra/vars/<env>.tfvars for each environment you list (discovered automatically from infra/vars/*.tfvars)
+
+name: PR CI
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+  workflow_dispatch:
+    inputs:
+      enable_tf_debug:
+        description: "Set TF_LOG=DEBUG for Terraform commands"
+        required: false
+        type: boolean
+        default: false
+      checkov_soft_fail:
+        description: "Run Checkov with --soft-fail (report only)"
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+  pull-requests: write
+  id-token: write
+
+env:
+  AWS_REGION: ${{ vars.AWS_REGION || 'eu-west-2' }}
+  TF_STATE_BUCKET: ${{ vars.TF_STATE_BUCKET || 'debottam-learner-terraform-state-bucket' }}
+  TF_LOCK_TABLE: ${{ vars.TF_LOCK_TABLE || 'terraform-state-lock' }}
+  TERRAFORM_VERSION: ${{ vars.TERRAFORM_VERSION || '1.5.7' }}
+  NODE_VERSION: ${{ vars.NODE_VERSION || '24' }}
+
+jobs:
+  detect:
+    name: Detect changed packages & Terraform matrix
+    runs-on: ubuntu-latest
+    outputs:
+      packages_json: ${{ steps.matrix.outputs.packages_json }}
+      tf_matrix_json: ${{ steps.matrix.outputs.tf_matrix_json }}
+      matrix_empty: ${{ steps.matrix.outputs.matrix_empty }}
+
+    steps:
+      - name: Checkout (full history for reliable diffs)
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Resolve base ref for pull requests
+        id: base
+        if: github.event_name == 'pull_request'
+        run: |
+          BASE_REF="${{ github.base_ref }}"
+          echo "ref=${BASE_REF}" >> "$GITHUB_OUTPUT"
+          git fetch origin "${BASE_REF}" --depth=200 || git fetch origin "${BASE_REF}"
+
+      - name: Compute changed package slugs
+        id: matrix
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          json_array_from_lines() {
+            jq -R -s -c 'split("\n") | map(select(length > 0))'
+          }
+
+          collect_packages_from_paths() {
+            awk -F/ '
+              /^packages\// && NF >= 2 { print $2 }
+            ' | sort -u
+          }
+
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            BASE_REF="${{ steps.base.outputs.ref }}"
+            if git merge-base HEAD "origin/${BASE_REF}" >/dev/null 2>&1; then
+              MERGE_BASE="$(git merge-base HEAD "origin/${BASE_REF}")"
+              CHANGED_FILES="$(git diff --name-only "${MERGE_BASE}" HEAD)"
+            else
+              # Unrelated histories, shallow gaps, or first-time branches: fall back to three-dot diff
+              CHANGED_FILES="$(git diff --name-only "origin/${BASE_REF}...HEAD" || true)"
+              if [ -z "${CHANGED_FILES}" ]; then
+                CHANGED_FILES="$(git diff-tree --no-commit-id --name-only -r HEAD)"
+              fi
+            fi
+          else
+            # workflow_dispatch: validate the current tree against main if available
+            if git show-ref --verify --quiet refs/remotes/origin/main; then
+              CHANGED_FILES="$(git diff --name-only origin/main...HEAD || true)"
+            else
+              git fetch origin main --depth=50 || true
+              CHANGED_FILES="$(git diff --name-only origin/main...HEAD || true)"
+            fi
+            if [ -z "${CHANGED_FILES}" ]; then
+              CHANGED_FILES="$(git diff-tree --no-commit-id --name-only -r HEAD)"
+            fi
+          fi
+
+          echo "::group::Changed files"
+          if [ -n "${CHANGED_FILES}" ]; then
+            printf '%s\n' "${CHANGED_FILES}"
+          else
+            echo "(none)"
+          fi
+          echo "::endgroup::"
+
+          PKG_LINES="$(printf '%s\n' "${CHANGED_FILES}" | collect_packages_from_paths || true)"
+          if [ -z "${PKG_LINES}" ]; then
+            echo "No direct package changes detected under packages/"
+            PACKAGES_JSON='[]'
+          else
+            PACKAGES_JSON="$(printf '%s\n' "${PKG_LINES}" | json_array_from_lines)"
+          fi
+
+          # Optional: expand to Terraform-only edits (e.g. someone touches infra) still keyed by package slug
+          if [ "${PACKAGES_JSON}" = "[]" ]; then
+            echo "matrix_empty=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "matrix_empty=false" >> "$GITHUB_OUTPUT"
+          fi
+
+          # Discover tfvars environments from repo-level infra/vars/*.tfvars
+          if compgen -G "infra/vars/*.tfvars" > /dev/null; then
+            ENV_JSON="$(find infra/vars -maxdepth 1 -name '*.tfvars' -printf '%f\n' \
+              | sed 's/\.tfvars$//' | sort -u | json_array_from_lines)"
+          else
+            echo "::warning::infra/vars/*.tfvars not found — defaulting to [dev] for Terraform matrix"
+            ENV_JSON='["dev"]'
+          fi
+
+          # Only schedule Terraform work when a package contains root Terraform files
+          TF_GLOBAL_CHANGE="false"
+          # If shared Terraform modules or tfvars change, we may need to re-plan every package that has Terraform.
+          while IFS= read -r f; do
+            [ -z "${f}" ] && continue
+            case "${f}" in
+              modules/*|infra/vars/*) TF_GLOBAL_CHANGE="true" ;;
+            esac
+          done <<< "${CHANGED_FILES}"
+
+          TF_SLUGS=""
+          if [ "${TF_GLOBAL_CHANGE}" = "true" ]; then
+            # Build the full Terraform package list from the repo itself.
+            for dir in packages/*; do
+              [ -d "${dir}" ] || continue
+              slug="$(basename "${dir}")"
+              if compgen -G "packages/${slug}/infra/*.tf" > /dev/null; then
+                TF_SLUGS="${TF_SLUGS}${slug}"$'\n'
+              fi
+            done
+          elif [ "${PACKAGES_JSON}" != "[]" ]; then
+            while IFS= read -r slug; do
+              [ -z "${slug}" ] && continue
+              if compgen -G "packages/${slug}/infra/*.tf" > /dev/null; then
+                TF_SLUGS="${TF_SLUGS}${slug}"$'\n'
+              fi
+            done < <(echo "${PACKAGES_JSON}" | jq -r '.[]')
+          fi
+
+          if [ -z "$(echo -n "${TF_SLUGS}" | tr -d '\n')" ]; then
+            TF_PACKAGES_JSON='[]'
+          else
+            TF_PACKAGES_JSON="$(printf '%s\n' "${TF_SLUGS}" | sort -u | json_array_from_lines)"
+          fi
+
+          TF_MATRIX="$(jq -nc --argjson pkgs "$TF_PACKAGES_JSON" --argjson envs "$ENV_JSON" '
+            if ($pkgs | length) == 0 then []
+            else
+              [ $pkgs[] as $p | $envs[] as $e | { package: $p, environment: $e } ]
+            end
+          ')"
+
+          echo "packages_json=${PACKAGES_JSON}" >> "$GITHUB_OUTPUT"
+          echo "tf_matrix_json=${TF_MATRIX}" >> "$GITHUB_OUTPUT"
+
+          echo "packages=${PACKAGES_JSON}"
+          echo "terraform_matrix=${TF_MATRIX}"
+          echo "tf_global_change=${TF_GLOBAL_CHANGE}"
+          echo "::group::Terraform package slugs"
+          if [ -n "${TF_SLUGS}" ]; then
+            printf '%s\n' "${TF_SLUGS}"
+          else
+            echo "(none)"
+          fi
+          echo "::endgroup::"
+
+  node-ci:
+    name: Node — ${{ matrix.package }}
+    needs: detect
+    if: needs.detect.outputs.matrix_empty != 'true'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        package: ${{ fromJson(needs.detect.outputs.packages_json) }}
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Enable Terraform debug logging
+        if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.enable_tf_debug == 'true' }}
+        run: echo "TF_LOG=DEBUG" >> "$GITHUB_ENV"
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: |
+            packages/**/package-lock.json
+
+      - name: npm ci / lint / typecheck / build / test
+        shell: bash
+        run: |
+          set -euo pipefail
+          PKG_ROOT="packages/${{ matrix.package }}"
+          if [ ! -d "${PKG_ROOT}" ]; then
+            echo "::error::${PKG_ROOT} does not exist"
+            exit 1
+          fi
+
+          mapfile -t manifests < <(find "${PKG_ROOT}" -name package.json -not -path '*/node_modules/*' | sort || true)
+          if [ "${#manifests[@]}" -eq 0 ]; then
+            echo "No package.json files under ${PKG_ROOT}; skipping Node steps."
+            exit 0
+          fi
+
+          for manifest in "${manifests[@]}"; do
+            dir="$(dirname "${manifest}")"
+            echo "::group::${dir}"
+            npm ci --prefix "${dir}"
+            npm run lint --if-present --prefix "${dir}"
+            npm run typecheck --if-present --prefix "${dir}"
+            npm run build --if-present --prefix "${dir}"
+            npm run test --if-present --prefix "${dir}"
+            echo "::endgroup::"
+          done
+
+  terraform:
+    name: Terraform — ${{ matrix.package }} (${{ matrix.environment }})
+    needs: detect
+    if: needs.detect.outputs.tf_matrix_json != '[]'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJson(needs.detect.outputs.tf_matrix_json) }}
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Enable Terraform debug logging
+        if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.enable_tf_debug == 'true' }}
+        run: echo "TF_LOG=DEBUG" >> "$GITHUB_ENV"
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME || secrets.AWS_ASSUME_ROLE }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TERRAFORM_VERSION }}
+          terraform_wrapper: false
+
+      - name: Terraform fmt (recursive check)
+        shell: bash
+        run: |
+          set -euo pipefail
+          PKG="packages/${{ matrix.package }}/infra"
+          if [ ! -d "${PKG}" ]; then
+            echo "::notice::No infra directory for ${{ matrix.package }}"
+            exit 0
+          fi
+          terraform -chdir="${PKG}" fmt -check -recursive
+
+      - name: Detect Terraform sources for Checkov
+        id: tf_present
+        shell: bash
+        run: |
+          set -euo pipefail
+          TDIR="packages/${{ matrix.package }}/infra"
+          if [ -d "${TDIR}" ] && compgen -G "${TDIR}/*.tf" > /dev/null; then
+            echo "ok=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "ok=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Checkov
+        if: steps.tf_present.outputs.ok == 'true'
+        uses: bridgecrewio/checkov-action@v12
+        with:
+          directory: packages/${{ matrix.package }}/infra
+          framework: terraform
+          config_file: .checkov.yaml
+          quiet: true
+          # Only pass when true; passing boolean false becomes invalid `--soft_fail=False` in the action.
+          soft_fail: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.checkov_soft_fail == 'true' && 'true' || '' }}
+
+      - name: Terraform init / validate / plan
+        shell: bash
+        run: |
+          set -euo pipefail
+          PKG="packages/${{ matrix.package }}/infra"
+          if [ ! -d "${PKG}" ]; then
+            echo "Skipping Terraform — missing ${PKG}"
+            exit 0
+          fi
+
+          VAR_FILE="${GITHUB_WORKSPACE}/infra/vars/${{ matrix.environment }}.tfvars"
+          if [ ! -f "${VAR_FILE}" ]; then
+            echo "::error::Missing var-file ${VAR_FILE}. Add infra/vars/${{ matrix.environment }}.tfvars or trim environments."
+            exit 1
+          fi
+
+          PLAN_FILE="${{ matrix.package }}-${{ matrix.environment }}.tfplan"
+          terraform -chdir="${PKG}" init \
+            -backend-config="bucket=${TF_STATE_BUCKET}" \
+            -backend-config="key=${{ matrix.package }}/terraform.tfstate" \
+            -backend-config="region=${AWS_REGION}" \
+            -backend-config="dynamodb_table=${TF_LOCK_TABLE}" \
+            -reconfigure
+
+          terraform -chdir="${PKG}" validate
+          terraform -chdir="${PKG}" plan \
+            -var-file="${VAR_FILE}" \
+            -input=false \
+            "-out=${PLAN_FILE}"
+
+      - name: Upload Terraform plan artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: tfplan-${{ matrix.package }}-${{ matrix.environment }}
+          path: packages/${{ matrix.package }}/infra/${{ matrix.package }}-${{ matrix.environment }}.tfplan
+          if-no-files-found: warn
+          retention-days: 14
