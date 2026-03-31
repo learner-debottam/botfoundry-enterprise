@@ -423,9 +423,15 @@ jobs:
           fi
 
           LAMBDAS="$(jq -r '
-            .locales[]?.intents[]? |
-            .fulfillment_lambda_name?, .lambda_config.function_name?
-          ' "${BOT_CONFIG}" | sort -u | awk "NF" || true)"
+            [
+              .locales[]?.intents[]? |
+              .fulfillment_lambda_name?,
+              .lambda_config.function_name?
+            ]
+            | flatten
+            | map(select(type == "string" and length > 0 and . != "null"))
+            | unique[]
+          ' "${BOT_CONFIG}" || true)"
 
           if [ -z "${LAMBDAS}" ]; then
             echo "No Lambda functions declared in ${BOT_CONFIG}; skipping artifact upload."

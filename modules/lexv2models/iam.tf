@@ -111,38 +111,6 @@ resource "aws_iam_role_policy_attachment" "allow_lex_cloudwatch_logging" {
   policy_arn = aws_iam_policy.allow_lex_cloudwatch_logging.arn
 }
 
-# ============================================================================
-# Lambda Invocation Permissions (Dynamic)
-# ============================================================================
-# Grants Lex permission to invoke Lambda functions for fulfillment or validation.
-# Created only if Lambda ARNs are provided to avoid unnecessary permissions.
-# data "aws_iam_policy_document" "allow_invoke_lambdas" {
-#   count = length(var.lambda_arns) > 0 ? 1 : 0
-
-#   statement {
-#     sid    = "AllowInvokeLambdas"
-#     effect = "Allow"
-#     actions = [
-#       "lambda:InvokeFunction",
-#       "lambda:InvokeAsync"
-#     ]
-#     resources = values(var.lambda_arns)
-#   }
-# }
-
-# resource "aws_iam_policy" "allow_invoke_lambdas" {
-#   count  = length(var.lambda_arns) > 0 ? 1 : 0
-#   name   = "${local.bot_name}-allow-invoke-lambdas-policy"
-#   policy = data.aws_iam_policy_document.allow_invoke_lambdas[0].json
-#   tags   = var.tags
-# }
-
-# resource "aws_iam_role_policy_attachment" "allow_invoke_lambdas" {
-#   count      = length(var.lambda_arns) > 0 ? 1 : 0
-#   role       = aws_iam_role.lex_role.name
-#   policy_arn = aws_iam_policy.allow_invoke_lambdas[0].arn
-# }
-
 data "aws_iam_policy_document" "allow_invoke_lambdas" {
   count = length(var.lambda_arns) > 0 ? 1 : 0
 
@@ -156,7 +124,6 @@ data "aws_iam_policy_document" "allow_invoke_lambdas" {
     resources = values(var.lambda_arns)
   }
 }
-
 resource "aws_iam_policy" "allow_invoke_lambdas" {
   count  = length(var.lambda_arns) > 0 ? 1 : 0
   name   = "${local.bot_name}-allow-invoke-lambdas-policy"
