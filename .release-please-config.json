@@ -1,0 +1,14 @@
+{
+  "packages": {
+    "packages/insurance-bot": {
+      "release-type": "simple",
+      "changelog-path": "CHANGELOG.md",
+      "version-file": "version.txt"
+    },
+    "packages/pizza-order-bot": {
+      "release-type": "simple",
+      "changelog-path": "CHANGELOG.md",
+      "version-file": "version.txt"
+    }
+  }
+}

@@ -1,0 +1,10 @@
+# Keys use the same spelling as Checkov CLI flags (hyphenated). Underscore names
+# (e.g. skip_checks, soft_fail) break argparse and produce errors like
+# "unrecognized arguments: --soft_fail=False".
+
+framework:
+  - terraform
+
+skip-check: CKV_AWS_18,CKV_AWS_27,CKV_AWS_116,CKV_AWS_272 # example: allow public S3 if needed; use commas for multiple IDs
+
+quiet: true
