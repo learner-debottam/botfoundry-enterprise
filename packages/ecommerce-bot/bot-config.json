@@ -1,342 +1,184 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "Lex V2 Bot Configuration",
-  "type": "object",
-  "additionalProperties": false,
+  "name": "ecommerce-assistant",
+  "description": "An e-commerce assistant to help users search products, track orders, and manage returns.",
+  "type": "Bot",
+  "idle_session_ttl": 300,
+  "child_directed": false,
+  "logging": {
+    "enabled": true,
+    "log_level": "INFO"
+  },
+  "locales": {
+    "en_US": {
+      "description": "English (United States)",
+      "confidence_threshold": 0.75,
+      "voice_settings": {
+        "voice_id": "Joanna",
+        "engine": "neural"
+      },
 
-  "required": ["name", "idle_session_ttl", "locales"],
-
-  "properties": {
-    "name": {
-      "type": "string",
-      "minLength": 1,
-      "maxLength": 100,
-      "pattern": "^[A-Za-z0-9_-]+$"
-    },
-
-    "description": {
-      "type": "string",
-      "maxLength": 200
-    },
-
-    "type": {
-      "type": "string",
-      "enum": ["Bot", "BotNetwork"],
-      "default": "Bot"
-    },
-
-    "idle_session_ttl": {
-      "type": "integer",
-      "minimum": 60,
-      "maximum": 86400
-    },
-
-    "child_directed": {
-      "type": "boolean",
-      "default": false
-    },
-
-    "logging": {
-      "type": "object",
-      "additionalProperties": false,
-      "properties": {
-        "enabled": { "type": "boolean" },
-        "log_level": {
-          "type": "string",
-          "enum": ["INFO", "ERROR"]
+      "slot_types": {
+        "ProductCategory": {
+          "description": "Category of products",
+          "value_selection_strategy": "ExpandValues",
+          "values": [
+            { "value": "Electronics", "synonyms": ["gadgets", "devices"] },
+            { "value": "Clothing", "synonyms": ["apparel", "wear"] },
+            { "value": "Shoes", "synonyms": ["footwear"] },
+            { "value": "Books", "synonyms": ["novels", "reading"] }
+          ]
+        },
+        "OrderNumber": {
+          "description": "Customer order number",
+          "values": [
+            { "value": "12345" }
+          ]
+        },
+        "ReturnReason": {
+          "description": "Reason for return",
+          "values": [
+            { "value": "Damaged", "synonyms": ["broken", "defective"] },
+            { "value": "WrongItem", "synonyms": ["incorrect product"] },
+            { "value": "NotNeeded", "synonyms": ["no longer needed"] }
+          ]
         }
-      }
-    },
+      },
 
-    "locales": {
-      "type": "object",
-      "minProperties": 1,
-      "additionalProperties": false,
-
-      "patternProperties": {
-        "^[a-z]{2}_[A-Z]{2}$": {
-          "type": "object",
-          "additionalProperties": false,
-          "required": ["confidence_threshold"],
-
-          "properties": {
-            "description": { "type": "string" },
-
-            "confidence_threshold": {
-              "type": "number",
-              "minimum": 0,
-              "maximum": 1
-            },
-
-            "voice_settings": {
-              "type": "object",
-              "additionalProperties": false,
-              "required": ["voice_id"],
-              "properties": {
-                "voice_id": { "type": "string" },
-                "engine": {
-                  "type": "string",
-                  "enum": ["standard", "neural"]
-                }
-              }
-            },
-
-            "custom_vocabulary": {
-              "type": "array",
-              "maxItems": 100,
-              "items": {
-                "type": "object",
-                "required": ["phrase"],
-                "additionalProperties": false,
-                "properties": {
-                  "phrase": { "type": "string" },
-                  "display_as": { "type": "string" },
-                  "weight": {
-                    "type": "number",
-                    "minimum": 0,
-                    "maximum": 3
-                  }
-                }
-              }
-            },
-
-            "slot_types": {
-              "type": "object",
-              "additionalProperties": {
-                "type": "object",
-                "additionalProperties": false,
-                "required": ["values"],
-
-                "properties": {
-                  "description": { "type": "string" },
-
-                  "value_selection_strategy": {
-                    "type": "string",
-                    "enum": ["ExpandValues", "RestrictToSlotValues"],
-                    "default": "ExpandValues"
-                  },
-
-                  "values": {
-                    "type": "array",
-                    "minItems": 1,
-                    "items": {
-                      "type": "object",
-                      "required": ["value"],
-                      "properties": {
-                        "value": { "type": "string" },
-                        "synonyms": {
-                          "type": "array",
-                          "items": { "type": "string" }
-                        }
-                      }
-                    }
-                  }
-                }
-              }
-            },
-
-            "intents": {
-              "type": "object",
-              "additionalProperties": {
-                "type": "object",
-                "additionalProperties": false,
-
-                "properties": {
-                  "description": { "type": "string" },
-
-                  "intent_type": {
-                    "type": "string",
-                    "enum": ["Normal", "Fallback", "BuiltIn"],
-                    "default": "Normal"
-                  },
-
-                  "sample_utterances": {
-                    "type": "array",
-                    "minItems": 1,
-                    "items": { "type": "string" }
-                  },
-
-                  "initial_response": {
-                    "type": "object",
-                    "properties": {
-                      "message": { "type": "string" },
-                      "variations": {
-                        "type": "array",
-                        "items": { "type": "string" }
-                      }
-                    }
-                  },
-
-                  "dialog_code_hook": {
-                    "type": "object",
-                    "properties": {
-                      "enabled": { "type": "boolean" }
-                    }
-                  },
-
-                  "fulfillment_code_hook": {
-                    "type": "object",
-                    "properties": {
-                      "enabled": { "type": "boolean" }
-                    }
-                  },
-
-                  "fulfillment_lambda_name": {
-                    "type": "string"
-                  },
-
-                  "lambda_config": {
-                    "type": "object",
-                    "properties": {
-                      "function_name": { "type": "string" },
-                      "timeout_ms": {
-                        "type": "integer",
-                        "minimum": 100,
-                        "maximum": 30000
-                      }
-                    }
-                  },
-
-                  "confirmation_prompt": {
-                    "type": "object",
-                    "required": ["message"],
-                    "properties": {
-                      "message": { "type": "string" },
-                      "variations": {
-                        "type": "array",
-                        "maxItems": 2,
-                        "items": { "type": "string" }
-                      },
-                      "message_selection_strategy": {
-                        "type": "string",
-                        "enum": ["Ordered", "Random"],
-                        "default": "Ordered"
-                      },
-                      "max_retries": {
-                        "type": "integer",
-                        "minimum": 1,
-                        "maximum": 5
-                      }
-                    }
-                  },
-
-                  "confirmation_response": {
-                    "type": "object",
-                    "required": ["message"],
-                    "properties": {
-                      "message": { "type": "string" },
-                      "variations": {
-                        "type": "array",
-                        "items": { "type": "string" }
-                      }
-                    }
-                  },
-
-                  "declination_response": {
-                    "type": "object",
-                    "required": ["message"],
-                    "properties": {
-                      "message": { "type": "string" },
-                      "variations": {
-                        "type": "array",
-                        "items": { "type": "string" }
-                      }
-                    }
-                  },
-
-                  "failure_response": {
-                    "type": "object",
-                    "required": ["message"],
-                    "properties": {
-                      "message": { "type": "string" },
-                      "variations": {
-                        "type": "array",
-                        "items": { "type": "string" }
-                      }
-                    }
-                  },
-
-                  "closing_prompt": {
-                    "type": "object",
-                    "required": ["message"],
-                    "properties": {
-                      "message": { "type": "string" },
-                      "ssml_message": { "type": "string" },
-                      "variations": {
-                        "type": "array",
-                        "items": { "type": "string" }
-                      }
-                    }
-                  },
-
-                  "fulfillment_response": {
-                    "type": "object",
-                    "properties": {
-                      "message": { "type": "string" },
-                      "variations": {
-                        "type": "array",
-                        "items": { "type": "string" }
-                      }
-                    }
-                  },
-
-                  "contexts": {
-                    "type": "array",
-                    "items": {
-                      "type": "object",
-                      "properties": {
-                        "name": { "type": "string" },
-                        "time_to_live": {
-                          "type": "object",
-                          "properties": {
-                            "time_to_live_in_seconds": { "type": "integer" },
-                            "turns_to_live": { "type": "integer" }
-                          }
-                        }
-                      }
-                    }
-                  },
-
-                  "slots": {
-                    "type": "object",
-                    "additionalProperties": {
-                      "type": "object",
-                      "required": ["slot_type", "required", "prompt"],
-                      "properties": {
-                        "description": { "type": "string" },
-                        "slot_type": { "type": "string" },
-                        "required": { "type": "boolean" },
-
-                        "prompt": { "type": "string" },
-
-                        "prompt_variations": {
-                          "type": "array",
-                          "maxItems": 2,
-                          "items": { "type": "string" }
-                        },
-
-                        "message_selection_strategy": {
-                          "type": "string",
-                          "enum": ["Ordered", "Random"],
-                          "default": "Ordered"
-                        },
-
-                        "max_retries": {
-                          "type": "integer",
-                          "minimum": 1,
-                          "maximum": 5
-                        },
-
-                        "obfuscation": {
-                          "type": "string",
-                          "enum": ["DefaultObfuscation", "None"]
-                        }
-                      }
-                    }
-                  }
-                }
-              }
+      "intents": {
+        "SearchProduct": {
+          "description": "Search for products by category",
+          "intent_type": "Normal",
+          "sample_utterances": [
+            "Show me electronics",
+            "I want to buy shoes",
+            "Find clothing items",
+            "Search for books"
+          ],
+          "initial_response": {
+            "message": "Sure, what category are you interested in?",
+            "variations": [
+              "What kind of product are you looking for?",
+              "Please tell me the product category."
+            ]
+          },
+          "slots": {
+            "category": {
+              "description": "Product category",
+              "slot_type": "ProductCategory",
+              "required": true,
+              "prompt": "Which category are you interested in?",
+              "prompt_variations": [
+                "Tell me the category please.",
+                "What type of product?"
+              ],
+              "max_retries": 2
             }
+          },
+          "fulfillment_response": {
+            "message": "Here are some popular items in that category.",
+            "variations": [
+              "I found some great products for you.",
+              "Here are matching items."
+            ]
+          },
+          "closing_prompt": {
+            "message": "Would you like help with anything else?",
+            "variations": [
+              "Can I assist you further?",
+              "Anything else you want to explore?"
+            ]
+          }
+        },
+
+        "TrackOrder": {
+          "description": "Track an order using order number",
+          "intent_type": "Normal",
+          "sample_utterances": [
+            "Track my order",
+            "Where is my order",
+            "Order status",
+            "Check my order"
+          ],
+          "slots": {
+            "order_number": {
+              "description": "Order number",
+              "slot_type": "OrderNumber",
+              "required": true,
+              "prompt": "Please provide your order number.",
+              "prompt_variations": [
+                "What is your order ID?",
+                "Enter your order number."
+              ],
+              "max_retries": 2
+            }
+          },
+          "fulfillment_response": {
+            "message": "Your order is currently being processed and will be delivered soon.",
+            "variations": [
+              "Your order is on the way.",
+              "It will reach you shortly."
+            ]
+          },
+          "closing_prompt": {
+            "message": "Do you need help with anything else?"
+          }
+        },
+
+        "ReturnItem": {
+          "description": "Initiate a return request",
+          "intent_type": "Normal",
+          "sample_utterances": [
+            "I want to return a product",
+            "Return my item",
+            "I need to send something back"
+          ],
+          "slots": {
+            "order_number": {
+              "description": "Order number",
+              "slot_type": "OrderNumber",
+              "required": true,
+              "prompt": "Please provide your order number."
+            },
+            "reason": {
+              "description": "Reason for return",
+              "slot_type": "ReturnReason",
+              "required": true,
+              "prompt": "Why do you want to return the item?",
+              "prompt_variations": [
+                "What is the reason for return?",
+                "Please tell me the issue."
+              ]
+            }
+          },
+          "confirmation_prompt": {
+            "message": "Do you want to proceed with the return request?",
+            "variations": [
+              "Should I initiate the return?",
+              "Confirm return request?"
+            ],
+            "max_retries": 2
+          },
+          "confirmation_response": {
+            "message": "Your return request has been submitted successfully."
+          },
+          "declination_response": {
+            "message": "Okay, I will not proceed with the return."
+          },
+          "closing_prompt": {
+            "message": "Anything else I can help you with?"
+          }
+        },
+
+        "FallbackIntent": {
+          "intent_type": "Fallback",
+          "description": "Fallback intent when no match is found",
+          "closing_prompt": {
+            "message": "Sorry, I didn’t understand that. Could you please rephrase?",
+            "variations": [
+              "I didn’t get that. Can you try again?",
+              "Sorry, can you repeat?"
+            ]
           }
         }
       }
