@@ -44,7 +44,7 @@ jobs:
         run: terraform fmt -check -recursive
 
       - name: Terraform validate (module)
-        working-directory: modules/lexv2-bot
+        working-directory: modules/lexv2models
         run: |
           terraform init -backend=false
           terraform validate
