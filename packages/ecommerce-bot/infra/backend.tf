@@ -25,3 +25,13 @@
 # - Do NOT add backend config here unless running Terraform locally
 # - For local testing, you may temporarily define a backend
 # ============================================================================
+
+terraform {
+  backend "s3" {
+    bucket         = "my-terraform-state-bucket"
+    key            = "ecommerce-bot/terraform.tfstate" # per package
+    region         = "eu-west-2"
+    dynamodb_table = "terraform-state-lock"
+    encrypt        = true
+  }
+}
