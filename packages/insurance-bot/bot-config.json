@@ -2,7 +2,7 @@
   "name": "insurance-bot",
   "description": "Insurance claims and policy management bot",
   "type": "Bot",
-  "idle_session_ttl": 900,
+  "idle_session_ttl": 550,
   "child_directed": false,
   "locales": {
     "en_GB": {
