@@ -66,25 +66,25 @@ resource "aws_lexv2models_bot_locale" "locales" {
 # ============================================================================
 # Creates a stable bot version from the DRAFT version.
 # Ensures all locales are included and resources are updated safely.
-resource "aws_lexv2models_bot_version" "this" {
-  bot_id      = aws_lexv2models_bot.this.id
-  description = "Stable version"
+# resource "aws_lexv2models_bot_version" "this" {
+#   bot_id      = aws_lexv2models_bot.this.id
+#   description = "Stable version"
 
-  locale_specification = {
-    for locale_id, _ in local.locales : locale_id => {
-      source_bot_version = "DRAFT"
-    }
-  }
+#   locale_specification = {
+#     for locale_id, _ in local.locales : locale_id => {
+#       source_bot_version = "DRAFT"
+#     }
+#   }
 
-  lifecycle {
-    create_before_destroy = true
-  }
+#   lifecycle {
+#     create_before_destroy = true
+#   }
 
-  depends_on = [
-    aws_lexv2models_intent.intents,
-    aws_lexv2models_slot.slots
-  ]
-}
+#   depends_on = [
+#     aws_lexv2models_intent.intents,
+#     aws_lexv2models_slot.slots
+#   ]
+# }
 
 # ============================================================================
 # Lex V2 Intents

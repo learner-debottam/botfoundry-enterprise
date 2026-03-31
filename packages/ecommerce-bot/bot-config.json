@@ -1,11 +1,187 @@
 {
-  "name": "ecommerce-bot",
-  "idle_session_ttl": 500,
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "name": "ecommerce-assistant",
+  "description": "An e-commerce assistant to help users search products, track orders, and manage returns.",
+  "type": "Bot",
+  "idle_session_ttl": 300,
+  "child_directed": false,
+  "logging": {
+    "enabled": true,
+    "log_level": "INFO"
+  },
   "locales": {
     "en_GB": {
-      "description": "English (GB)",
+      "description": "British English locale",
       "confidence_threshold": 0.75,
-      "intents": {}
+      "voice_settings": {
+        "voice_id": "Joanna",
+        "engine": "neural"
+      },
+
+      "slot_types": {
+        "ProductCategory": {
+          "description": "Category of products",
+          "value_selection_strategy": "ExpandValues",
+          "values": [
+            { "value": "Electronics", "synonyms": ["gadgets", "devices"] },
+            { "value": "Clothing", "synonyms": ["apparel", "wear"] },
+            { "value": "Shoes", "synonyms": ["footwear"] },
+            { "value": "Books", "synonyms": ["novels", "reading"] }
+          ]
+        },
+        "OrderNumber": {
+          "description": "Customer order number",
+          "values": [
+            { "value": "12345" }
+          ]
+        },
+        "ReturnReason": {
+          "description": "Reason for return",
+          "values": [
+            { "value": "Damaged", "synonyms": ["broken", "defective"] },
+            { "value": "WrongItem", "synonyms": ["incorrect product"] },
+            { "value": "NotNeeded", "synonyms": ["no longer needed"] }
+          ]
+        }
+      },
+
+      "intents": {
+        "SearchProduct": {
+          "description": "Search for products by category",
+          "intent_type": "Normal",
+          "sample_utterances": [
+            "Show me electronics",
+            "I want to buy shoes",
+            "Find clothing items",
+            "Search for books"
+          ],
+          "initial_response": {
+            "message": "Sure, what category are you interested in?",
+            "variations": [
+              "What kind of product are you looking for?",
+              "Please tell me the product category."
+            ]
+          },
+          "slots": {
+            "category": {
+              "description": "Product category",
+              "slot_type": "ProductCategory",
+              "required": true,
+              "prompt": "Which category are you interested in?",
+              "prompt_variations": [
+                "Tell me the category please.",
+                "What type of product?"
+              ],
+              "max_retries": 2
+            }
+          },
+          "fulfillment_response": {
+            "message": "Here are some popular items in that category.",
+            "variations": [
+              "I found some great products for you.",
+              "Here are matching items."
+            ]
+          },
+          "closing_prompt": {
+            "message": "Would you like help with anything else?",
+            "variations": [
+              "Can I assist you further?",
+              "Anything else you want to explore?"
+            ]
+          }
+        },
+
+        "TrackOrder": {
+          "description": "Track an order using order number",
+          "intent_type": "Normal",
+          "sample_utterances": [
+            "Track my order",
+            "Where is my order",
+            "Order status",
+            "Check my order"
+          ],
+          "slots": {
+            "order_number": {
+              "description": "Order number",
+              "slot_type": "OrderNumber",
+              "required": true,
+              "prompt": "Please provide your order number.",
+              "prompt_variations": [
+                "What is your order ID?",
+                "Enter your order number."
+              ],
+              "max_retries": 2
+            }
+          },
+          "fulfillment_response": {
+            "message": "Your order is currently being processed and will be delivered soon.",
+            "variations": [
+              "Your order is on the way.",
+              "It will reach you shortly."
+            ]
+          },
+          "closing_prompt": {
+            "message": "Do you need help with anything else?"
+          }
+        },
+
+        "ReturnItem": {
+          "description": "Initiate a return request",
+          "intent_type": "Normal",
+          "sample_utterances": [
+            "I want to return a product",
+            "Return my item",
+            "I need to send something back"
+          ],
+          "slots": {
+            "order_number": {
+              "description": "Order number",
+              "slot_type": "OrderNumber",
+              "required": true,
+              "prompt": "Please provide your order number."
+            },
+            "reason": {
+              "description": "Reason for return",
+              "slot_type": "ReturnReason",
+              "required": true,
+              "prompt": "Why do you want to return the item?",
+              "prompt_variations": [
+                "What is the reason for return?",
+                "Please tell me the issue."
+              ]
+            }
+          },
+          "confirmation_prompt": {
+            "message": "Do you want to proceed with the return request?",
+            "variations": [
+              "Should I initiate the return?",
+              "Confirm return request?"
+            ],
+            "max_retries": 2
+          },
+          "confirmation_response": {
+            "message": "Your return request has been submitted successfully."
+          },
+          "declination_response": {
+            "message": "Okay, I will not proceed with the return."
+          },
+          "closing_prompt": {
+            "message": "Anything else I can help you with?"
+          }
+        },
+
+        "FallbackIntent": {
+          "intent_type": "Fallback",
+          "description": "Fallback intent when no match is found",
+          "closing_prompt": {
+            "message": "Sorry, I didn’t understand that. Could you please rephrase?",
+            "variations": [
+              "I didn’t get that. Can you try again?",
+              "Sorry, can you repeat?"
+            ]
+          }
+        }
+      }
     }
   }
 }

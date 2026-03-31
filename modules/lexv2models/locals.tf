@@ -104,9 +104,25 @@ locals {
           variations = lookup(intent_data.failure_response, "variations", [])
         } : null
 
+        # closing_prompt = contains(keys(intent_data), "closing_prompt") ? {
+        #   message      = lookup(intent_data.closing_prompt, "message", "")
+        #   variations   = slice(lookup(intent_data.closing_prompt, "variations", []), 0, 2)
+        #   ssml_message = lookup(intent_data.closing_prompt, "ssml_message", "")
+        # } : null
+
         closing_prompt = contains(keys(intent_data), "closing_prompt") ? {
-          message      = lookup(intent_data.closing_prompt, "message", "")
-          variations   = slice(lookup(intent_data.closing_prompt, "variations", []), 0, 2)
+          message = lookup(intent_data.closing_prompt, "message", "")
+
+          variations = (
+            length(lookup(intent_data.closing_prompt, "variations", [])) > 0 ?
+            slice(
+              lookup(intent_data.closing_prompt, "variations", []),
+              0,
+              min(2, length(lookup(intent_data.closing_prompt, "variations", [])))
+            )
+            : []
+          )
+
           ssml_message = lookup(intent_data.closing_prompt, "ssml_message", "")
         } : null
 

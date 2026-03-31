@@ -20,7 +20,7 @@
       "slot_types": {
         "InsuranceType": {
           "description": "Type of insurance",
-          "value_selection_strategy": "ExpandValues",
+          "value_selection_strategy": "RestrictToSlotValues",
           "values": [
             { "value": "Car", "synonyms": ["Auto", "Vehicle"] },
             { "value": "Home", "synonyms": ["House", "Property"] },

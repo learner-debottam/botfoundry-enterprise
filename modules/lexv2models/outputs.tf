@@ -28,9 +28,9 @@ output "bot_name" {
   value = aws_lexv2models_bot.this.name
 }
 
-output "bot_version" {
-  value = aws_lexv2models_bot_version.this.bot_version
-}
+# output "bot_version" {
+#   value = aws_lexv2models_bot_version.this.bot_version
+# }
 
 output "bot_arn" {
   value = aws_lexv2models_bot.this.arn
