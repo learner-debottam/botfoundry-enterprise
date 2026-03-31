@@ -36,10 +36,10 @@ output "lex_cloudwatch_log_group_arn" {
 # Lambda Functions
 output "lambda_functions" {
   description = "Map of Lambda function names to their ARNs"
-  value = { for k, v in module.lambda.functions : k => v.arn }
+  value       = { for k, v in module.lambda.functions : k => v.arn }
 }
 
 output "lambda_cloudwatch_log_group_arns" {
   description = "Map of Lambda log group ARNs"
-  value = { for k, v in module.lambda_logs : k => v.log_group_arn }
+  value       = { for k, v in module.lambda_logs : k => v.log_group_arn }
 }
