@@ -14,7 +14,7 @@
       "description": "British English locale",
       "confidence_threshold": 0.75,
       "voice_settings": {
-        "voice_id": "Any",
+        "voice_id": "Amy",
         "engine": "neural"
       },
 
