@@ -1,5 +1,5 @@
 {
-  "packages/insurance-bot": "1.0.0",
-  "packages/pizza-order-bot": "1.0.0",
-  "packages/ecommerce-bot": "1.0.0"
+  "packages/insurance-bot": "1.1.0",
+  "packages/pizza-order-bot": "1.1.0",
+  "packages/ecommerce-bot": "1.1.0"
 }
