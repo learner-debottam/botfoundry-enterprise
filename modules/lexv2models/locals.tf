@@ -118,8 +118,8 @@ locals {
         #   ssml_message = lookup(intent_data.closing_prompt, "ssml_message", "")
         # } : null
 
-         closing_prompt = contains(keys(intent_data), "closing_prompt") ? {
-          message    = lookup(intent_data.closing_prompt, "message", "")
+        closing_prompt = contains(keys(intent_data), "closing_prompt") ? {
+          message = lookup(intent_data.closing_prompt, "message", "")
           variations = slice(
             lookup(intent_data.closing_prompt, "variations", []),
             0,
