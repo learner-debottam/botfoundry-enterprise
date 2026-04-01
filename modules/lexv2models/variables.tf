@@ -69,13 +69,13 @@ variable "create_version" {
 }
 
 variable "lambda_arns" {
-  description = "Optional map of Lambda ARNs keyed by logical names used in bot_config"
+  description = "Optional map of Lambda ARNs keyed by fulfillment_lambda_name. Merged with ARNs derived from lambda_functions (this map wins on key overlap)."
   type        = map(string)
   default     = {}
 }
 
 variable "lambda_functions" {
-  description = "Optional map of Lambda function objects for Lex intents"
+  description = "Optional map of deployed Lambdas (function_name + arn), keyed like fulfillment_lambda_name. Used with lambda_arns as local.lambda_arns_effective for hooks and IAM."
   type = map(object({
     function_name = string
     arn           = string
