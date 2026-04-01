@@ -1,533 +1,197 @@
-## Lex V2 Bot Terraform Monorepo Template
+# BotFoundry Enterprise
 
-This repository provides a **reusable, opinionated Terraform template** for provisioning **Amazon Lex V2 bots** in a monorepo. It is designed so that:
-
-- Non‑Terraform users can define a bot using a **JSON template**.
-- The JSON is **validated automatically** (schema + CI) before any infrastructure changes.
-- The module creates **Lex V2 bot, locales, intents, slots, slot types, IAM roles, and bot version**.
-- All resources are **driven declaratively** from the JSON; missing sections are simply not created.
-- CI/CD for the **Dev environment** is handled via **GitHub Actions** with security checks.
+BotFoundry Enterprise is an **internal platform** for defining and deploying **Amazon Lex V2** conversational bots in a **GitOps-friendly monorepo**. The goal is to keep the **authoring surface small**: developers scaffold a package, then spend most of their time editing **`bot-config.json`** instead of Terraform.
 
 ---
 
-## High‑Level Architecture
+## What you get
 
-- **`modules/lexv2-bot`**  
-  Generic, environment‑agnostic Terraform module that:
-  - Creates the Lex V2 **bot** (`aws_lexv2models_bot`).
-  - Creates **locales** per language (`aws_lexv2models_bot_locale`).
-  - Creates **intents**, **custom slot types**, and **slots**:
-    - `aws_lexv2models_intent`
-    - `aws_lexv2models_slot_type`
-    - `aws_lexv2models_slot`
-  - Creates an **IAM role** and supporting policies for:
-    - Allowing Lex to assume the role.
-    - Allowing Lex to use Amazon Polly for speech synthesis.
-    - Allowing Lex to write to CloudWatch Logs.
-    - Optionally allowing Lex to invoke specified Lambda functions.
-  - Creates a **bot version** (`aws_lexv2models_bot_version`) from the DRAFT bot.
-
-- **`bot/`**  
-  A concrete, Dev‑focused entrypoint that:
-  - Reads a **bot configuration JSON** (e.g. `bot/examples/minimal-bot.json`).
-  - Validates the JSON against a **JSON Schema**.
-  - Calls the `lexv2-bot` module with appropriate variables.
-
-- **`infra/`**  
-  Shared Terraform infra components for remote state and providers (e.g., S3 backend for state).
-
-- **`.github/workflows/terraform-dev.yml`**  
-  GitHub Actions pipeline for **Dev**:
-  - Lint, format, validate, and run security checks (Checkov).
-  - Validate JSON configs with the schema using a shell script.
-  - Run `terraform plan` and `terraform apply` for Dev using OIDC -> AWS.
+| Area | What BotFoundry provides |
+|------|---------------------------|
+| **Scaffolding** | CLI that copies **with-lambda** or **without-lambda** Terraform + optional Lambda boilerplate into `packages/<bot-name>/`. |
+| **Configuration** | Single **`bot-config.json`** per bot (locales, intents, slots, prompts, optional Lambda names). |
+| **Validation** | JSON Schema (`schemas/lex-bot-schema.json`) and scripts under `scripts/` for CI and local checks. |
+| **Infrastructure** | Shared Terraform **modules** (`lexv2models`, `lambda`, logging) and per-package `infra/` with remote state. |
+| **Delivery** | GitHub Actions on `main`: Release Please (per-package versions), Node checks, Terraform plan/apply, Lambda zip upload to S3 when applicable. |
 
 ---
 
-## Repository Layout
+## Developer workflow
 
-- **`bot/`**
-  - `main.tf` – Root Terraform entrypoint for the Dev bot, calls the module.
-  - `variables.tf` – Input variables for Dev deployment (environment, region, account, etc.).
-  - `locals.tf` – Loads and decodes the bot JSON configuration and defines common tags.
-  - `examples/minimal-bot.json` – Minimal **example bot configuration** (one locale, no intents/slots).
-  - `validate_bot_config.sh` – Shell script to **validate any bot JSON** against the schema.
-  - `validate_bot_config.py` – Python alternative for JSON validation (optional).
+### 1. Create a new bot package
 
-- **`modules/lexv2-bot/`**
-  - `main.tf` – Lex bot (`aws_lexv2models_bot`) and locales (`aws_lexv2models_bot_locale`).
-  - `intents.tf` – Intents, custom slot types, and slots (`aws_lexv2models_intent`, `aws_lexv2models_slot_type`, `aws_lexv2models_slot`).
-  - `iam.tf` – Lex IAM role and policies (Polly, CloudWatch Logs, optional Lambda invoke).
-  - `locals.tf` – Flattens the JSON config into Terraform‑friendly data structures.
-  - `variables.tf` – Module inputs (bot_config, environment, tags, region, account, lambda_arns).
-  - `version.tf` / `versions.tf` – Provider and bot version resources.
-  - `outputs.tf` – Exposes bot ID, bot version, and configured locales.
-  - `schema.json` – **JSON Schema** defining the required/optional structure of `bot_config`.
-
-- **`infra/`**
-  - `backend.tf` – S3 backend definition for Terraform remote state (S3 bucket + lock file).
-  - `versions.tf` – Root Terraform and provider version constraints.
-  - `providers.tf` – AWS provider stub (region/account wired via variables).
-  - `variables.tf` – Shared root variables for environment, region, account, etc.
-  - `state/dev.config` – Example backend config for the **Dev** environment.
-
-- **`.github/workflows/terraform-dev.yml`**
-  - GitHub Actions definition for **Dev** pipeline.
-
----
-
-## The Bot Configuration JSON (User Input)
-
-The module is driven by a single JSON document per bot, for example:
-
-```json
-{
-  "name": "restaurant-bot",
-  "description": "Restaurant booking bot",
-  "idle_session_ttl": 300,
-  "locales": {
-    "en_US": {
-      "description": "US English locale",
-      "confidence_threshold": 0.7,
-      "slot_types": {
-        "MealType": {
-          "description": "Type of meal",
-          "values": ["breakfast", "lunch", "dinner"]
-        }
-      },
-      "intents": {
-        "BookTable": {
-          "description": "Book a restaurant table",
-          "sample_utterances": [
-            "Book a table",
-            "I want to book a table"
-          ],
-          "fulfillment_lambda_name": "restaurant-booking-handler",
-          "slots": {
-            "Date": {
-              "description": "Booking date",
-              "slot_type": "AMAZON.Date",
-              "required": true,
-              "prompt": "For what date would you like to book?"
-            },
-            "Time": {
-              "description": "Booking time",
-              "slot_type": "AMAZON.Time",
-              "required": true,
-              "prompt": "What time?"
-            },
-            "PartySize": {
-              "description": "Number of people",
-              "slot_type": "AMAZON.Number",
-              "required": true,
-              "prompt": "For how many people?"
-            }
-          }
-        }
-      }
-    },
-    "en_GB": {
-      "description": "UK English locale",
-      "confidence_threshold": 0.7,
-      "slot_types": {},
-      "intents": {
-        "BookTable": {
-          "description": "Book a table (UK)",
-          "sample_utterances": ["Book a table", "Reserve a table"],
-          "slots": {
-            "Date": {
-              "description": "Booking date (UK)",
-              "slot_type": "AMAZON.Date",
-              "required": true,
-              "prompt": "What date would you like to book?"
-            }
-          }
-        }
-      }
-    }
-  }
-}
-```
-
-### Optional vs required fields
-
-- **Top‑level**
-  - **Required**: `name`, `idle_session_ttl`, `locales`.
-  - **Optional**: `description`.
-
-- **Locales (`locales.<locale_id>`)**
-  - **Required**: `confidence_threshold` (0–1).
-  - **Optional**: `description`, `slot_types`, `intents`.
-  - If `slot_types` is missing/empty → **no custom slot types** are created for that locale.
-  - If `intents` is missing/empty → **no intents or slots** are created for that locale.
-
-- **Slot types (`slot_types.<name>`)**
-  - **Required**: `values` (non‑empty list of strings).
-  - **Optional**: `description`.
-
-- **Intents (`intents.<name>`)**
-  - **Required**: `sample_utterances` (non‑empty list of strings).
-  - **Optional**:
-    - `description`
-    - `fulfillment_lambda_name` (string; must match a key in `lambda_arns` when you want Lex to call Lambda)
-    - `slots` map.
-  - If `slots` is missing/empty → **no slots** are created for that intent.
-
-- **Slots (`slots.<name>`)**
-  - **Required**:
-    - `slot_type` – either an Amazon built‑in type (e.g. `AMAZON.Date`) or a custom type name defined under `slot_types` for that locale.
-    - `required` – boolean.
-    - `prompt` – non‑empty string (user prompt).
-  - **Optional**: `description`.
-
-All of this is enforced by **`modules/lexv2-bot/schema.json`** and the validation scripts / CI.
-
----
-
-## JSON Schema and Validation
-
-The JSON Schema is defined in **`modules/lexv2-bot/schema.json`** using JSON Schema **Draft‑07**. It:
-
-- Enforces the required keys and types.
-- Rejects unknown/typo’d fields (`additionalProperties: false`).
-- Validates locale IDs with a regex: `^[a-z]{2}_[A-Z]{2}$` (e.g., `en_US`, `en_GB`).
-- Validates structure and types of `slot_types`, `intents`, and `slots`.
-
-### Shell‑based validation (`validate_bot_config.sh`)
-
-In `bot/validate_bot_config.sh`:
-
-- Validates any config JSON against the schema using **AJV**:
-  - Uses `ajv` CLI if installed, otherwise falls back to `npx ajv-cli@8`.
-- Default schema path: `modules/lexv2-bot/schema.json`.
-
-Usage:
+From the repo root:
 
 ```bash
-chmod +x bot/validate_bot_config.sh
-
-./bot/validate_bot_config.sh --config bot/examples/minimal-bot.json
-
-# or specify a custom schema
-./bot/validate_bot_config.sh --config path/to/bot.json --schema modules/lexv2-bot/schema.json
+cd tools/create-bot
+npm install
+npm run dev
 ```
 
-### Optional Python validation (`validate_bot_config.py`)
+The CLI asks for:
 
-In `bot/validate_bot_config.py`:
+- **Bot name** (alphanumeric, `-`, `_`) — becomes `packages/<bot-name>/`.
+- **Template**: `with-lambda` or `without-lambda`.
 
-- Uses the `jsonschema` Python library to validate against the same schema.
+It copies `templates/<template>/` into your package, generates a starter **`bot-config.json`**, and for `with-lambda` creates **`lambdas/<name>/`** stubs for each `fulfillment_lambda_name` it finds in that JSON.
 
-Usage:
+### 2. Configure the bot
+
+Edit **`packages/<bot-name>/bot-config.json`**:
+
+- Add locales, slot types, intents, slots, utterances, prompts.
+- For Lambda fulfillment, set **`fulfillment_lambda_name`** (and optionally **`lambda_config`**) on intents; names must match folders under `lambdas/` and the artifacts CI uploads (`<name>.zip`).
+
+Validate against the schema when needed:
 
 ```bash
-pip install jsonschema
-python bot/validate_bot_config.py --config bot/examples/minimal-bot.json
+npx --yes ajv-cli validate -s schemas/lex-bot-schema.json -d packages/<bot-name>/bot-config.json --strict=false
 ```
 
-Exit codes:
+Or use `scripts/validate-bot-config.sh` (see script header for usage).
 
-- `0` – config is valid.
-- `1` – config invalid (schema failure).
-- `2` – usage error / missing file / dependency missing.
+### 3. Wire Terraform variables and deploy
 
----
+Each package’s **`infra/`** reads **`../bot-config.json`** via `locals.tf`. Environment-specific values (account, region, S3 bucket for Lambdas, etc.) come from **`infra/vars/<env>.tfvars`** at the repo root.
 
-## The Terraform Module (`modules/lexv2-bot`)
+Local example (adjust backend and vars to your setup):
 
-### Module Inputs
+```bash
+cd packages/<bot-name>/infra
+terraform init \
+  -backend-config="bucket=YOUR_STATE_BUCKET" \
+  -backend-config="key=<bot-name>/terraform.tfstate" \
+  -backend-config="region=YOUR_REGION" \
+  -backend-config="dynamodb_table=YOUR_LOCK_TABLE" \
+  -reconfigure
 
-- **`bot_config`** (`any`, required)  
-  The decoded JSON object (output of `jsondecode(file("...json"))`) representing the bot.
+terraform plan -var-file="../../../infra/vars/dev.tfvars"
+```
 
-- **`environment`** (`string`, required)  
-  Environment name (e.g., `dev`, `test`, `prod`). Used to suffix bot name and tags.
-
-- **`aws_region`** (`string`, required)  
-  Region where Lex is deployed.
-
-- **`aws_account_id`** (`string`, required)  
-  AWS account ID where the bot and IAM role are created.
-
-- **`tags`** (`map(string)`, optional, default `{}`)  
-  Tags applied to supported resources (e.g. IAM role, policies, bot).
-
-- **`lambda_arns`** (`map(string)`, optional, default `{}`)  
-  Map of logical Lambda names → Lambda ARNs.  
-  - If `bot_config.locales.*.intents.*.fulfillment_lambda_name` matches a key in this map:
-    - The module grants Lex permissions to **invoke** those Lambdas.
-    - The intent’s **fulfillment code hook** is enabled.
-  - If this map is empty, **no Lambda permissions** are created.
-
-### Module Behavior
-
-- **Bot and locales**
-  - `locals.bot_name` = `${bot_config.name}-${environment}`.
-  - `aws_lexv2models_bot` uses `bot_config.description` (if set) and `bot_config.idle_session_ttl`.
-  - `aws_lexv2models_bot_locale` is created for each locale in `bot_config.locales`.
-
-- **Slot types**
-  - `locals.slot_types` flattens `locales.*.slot_types` into a list.
-  - Names are sanitized to Lex IDs (`lex_id`) with max length and safe characters.
-  - `aws_lexv2models_slot_type` is created only when `slot_types` exist.
-
-- **Intents and slots**
-  - `locals.intents` flattens all intents across locales:
-    - Carries `description`, `sample_utterances`, `slots`, `fulfillment_lambda_name`, and sanitized `lex_id`.
-  - `locals.slots` flattens each intent’s `slots` into a separate list keyed by locale, intent, and slot name.
-  - `aws_lexv2models_intent`:
-    - Always created for defined intents.
-    - Dynamically creates `sample_utterance` blocks.
-    - Optionally sets `fulfillment_code_hook { enabled = true }` when **`fulfillment_lambda_name` is non‑null**.
-  - `aws_lexv2models_slot`:
-    - Created only for defined slots.
-    - `slot_type_id` automatically references either:
-      - Built‑in Amazon slot types (`AMAZON.*`), or
-      - Custom slot types defined in the same locale.
-    - Elicitation prompts and attempts are configured per slot, with lifecycle ignores for noisy fields.
-
-- **IAM (`iam.tf`)**
-  - **Trust policy** – Allows `lexv2.amazonaws.com` to assume the IAM role.
-  - **Polly policy** – Allows `polly:SynthesizeSpeech` on the account’s lexicons.
-  - **CloudWatch Logs policy** – Allows `logs:CreateLogStream`, `logs:PutLogEvents`, `logs:CreateLogGroup` on Lex log groups.
-  - **Optional Lambda invoke policy** – Created only when `lambda_arns` is non‑empty:
-
-    ```hcl
-    data "aws_iam_policy_document" "allow_invoke_lambdas" {
-      count = length(var.lambda_arns) > 0 ? 1 : 0
-
-      statement {
-        sid    = "AllowInvokeLambdas"
-        effect = "Allow"
-        actions = [
-          "lambda:InvokeFunction",
-          "lambda:InvokeAsync"
-        ]
-        resources = values(var.lambda_arns)
-      }
-    }
-    ```
-
-- **Bot version**
-  - `aws_lexv2models_bot_version` builds a version from DRAFT for all locales, depending on intents and slots.
-
-- **Outputs**
-  - `bot_id` – Lex bot ID.
-  - `bot_version` – Version number created by `aws_lexv2models_bot_version`.
-  - `locales` – List of configured locale IDs (e.g., `["en_US", "en_GB"]`).
+On **push to `main`**, `.github/workflows/ci.yml` plans/applies changed packages and uploads Lambda zips when `bot-config.json` declares Lambdas.
 
 ---
 
-## Dev Entrypoint (`bot/`)
+## Repository layout
 
-The `bot` folder is a **concrete Dev configuration** that calls the module.
-
-- **`bot/locals.tf`**
-
-  ```hcl
-  locals {
-    bot_config = jsondecode(
-      file("${path.module}/examples/minimal-bot.json")
-    )
-    tags = {
-      MANAGED_BY      = "Terraform"
-      ENVIRONMENT     = var.environment
-      AWS_REGION      = var.aws_region
-      AWS_ACCOUNT_NAME = var.aws_account_name
-      AWS_ACCOUNT_ID   = var.aws_account_id
-    }
-  }
-  ```
-
-- **`bot/main.tf`**
-
-  ```hcl
-  module "lex_bot" {
-    source         = "../modules/lexv2-bot"
-    bot_config     = local.bot_config
-    environment    = var.environment
-    aws_region     = var.aws_region
-    aws_account_id = var.aws_account_id
-    tags           = local.tags
-  }
-  ```
-
-- **`bot/variables.tf`**
-  - Declares `environment`, `aws_region`, `aws_account_id`, `aws_account_name`.
-
-This makes it easy to run Terraform for Dev directly from `bot/`.
+```
+botfoundry-enterprise/
+├── .github/workflows/     # Main CI + Release Please; PR validation workflow
+├── docs/                  # (optional) add runbooks here
+├── infra/vars/            # Shared *.tfvars per environment (dev, prod, …)
+├── modules/
+│   ├── cloudwatch-log-group/
+│   ├── lambda/            # Lambda functions from S3 artifacts
+│   └── lexv2models/       # Bot, locales, intents, slots, slot types, IAM, Lambda permissions
+├── packages/              # One deployable bot per folder (insurance-bot, pizza-order-bot, …)
+│   └── <bot>/
+│       ├── bot-config.json
+│       ├── infra/         # Root module for this bot
+│       └── lambdas/       # Optional; present for with-lambda bots
+├── schemas/
+│   └── lex-bot-schema.json        # Lex bot JSON Schema
+├── scripts/               # validate-bot-config.sh, validate-lambda-links.sh
+├── templates/
+│   ├── with-lambda/       # Terraform + sample bot-config pattern
+│   └── without-lambda/
+├── tools/create-bot/      # Scaffolding CLI (npm run dev)
+├── .release-please-config.json
+├── .release-please-manifest.json
+└── README.md              # This file
+```
 
 ---
 
-## Running Terraform Locally (Dev)
+## Terraform modules (conceptual)
 
-### Prerequisites
+### `modules/lexv2models`
 
-- Terraform >= 1.6.0
-- AWS credentials with appropriate permissions (e.g., via profile or environment).
-- If using S3 backend (recommended), the S3 bucket and DynamoDB lock table should exist (as configured in `infra/backend.tf` and `infra/state/dev.config`).
+Creates Lex V2 **Model** resources from decoded **`bot_config`**:
 
-### Steps
+- `aws_lexv2models_bot`, `aws_lexv2models_bot_locale`
+- `aws_lexv2models_intent`, `aws_lexv2models_slot_type`, `aws_lexv2models_slot`
+- Lex service **IAM role** (Polly, CloudWatch logs, conditional Lambda invoke)
+- **`aws_lambda_permission`** so Lex can invoke functions passed in as **`lambda_functions`** / **`lambda_arns`**
 
-1. **Validate JSON config** (recommended)
+Intents, hooks, and prompts are driven from JSON; **`lambda_arns_effective`** merges **`lambda_functions`** (typical) with optional **`lambda_arns`**.
 
-   ```bash
-   ./bot/validate_bot_config.sh --config bot/examples/minimal-bot.json
-   ```
+**Note:** `aws_lexv2models_bot_version` is present in the provider but **currently commented out** in `modules/lexv2models/main.tf`. There is a **`create_version`** variable in `variables.tf` intended to gate a version resource—today you should treat **DRAFT** as the Terraform-managed surface unless you re-enable versioning deliberately (see *Operational gaps* below).
 
-2. **Initialize and plan (from `bot/`)**
+### `modules/lambda`
 
-   ```bash
-   cd bot
+Deploys Lambdas from **S3** (`s3_key` / `s3_bucket`), matching the CI job that builds and uploads **`*.zip`** per logical function name.
 
-   terraform init \
-     -backend-config="../infra/state/dev.config"
+### `modules/cloudwatch-log-group`
 
-   terraform plan \
-     -var "environment=dev" \
-     -var "aws_region=eu-west-2" \
-     -var "aws_account_id=123456789012" \
-     -var "aws_account_name=my-dev-account"
-   ```
-
-3. **Apply**
-
-   ```bash
-   terraform apply \
-     -var "environment=dev" \
-     -var "aws_region=eu-west-2" \
-     -var "aws_account_id=123456789012" \
-     -var "aws_account_name=my-dev-account"
-   ```
+Shared log groups for Lex and/or Lambda with retention and optional **`prevent_destroy`** in production.
 
 ---
 
-## GitHub Actions CI/CD (Dev)
+## CI/CD (summary)
 
-The workflow is defined in **`.github/workflows/terraform-dev.yml`** and is triggered on:
+| Workflow | Purpose |
+|----------|---------|
+| **`ci.yml`** (`main`) | Release Please (per-package, manifest mode), change detection under `packages/*`, Node jobs for `package.json` trees, Terraform plan/apply per package × env, Lambda artifact upload when config references Lambdas. |
+| **`pr-ci.yml`** | PR validation: Node + Terraform plan, artifact upload for plans. |
 
-- Pushes to the `dev` branch.
-- Pull requests targeting `dev`.
-- Manual `workflow_dispatch`.
+**AWS access:** OIDC + `AWS_ROLE_TO_ASSUME` / env-specific role secrets (see workflow comments).
 
-### Jobs
-
-- **`lint` – Lint, format, security, and schema validation**
-  - `terraform fmt -check -recursive` across the repo.
-  - `terraform validate` for:
-    - `modules/lexv2-bot`
-    - `bot/` (Dev entrypoint)
-  - Runs `bot/validate_bot_config.sh` on all `bot/*.json` configs (skips `schema.json`).
-  - Runs **Checkov** (`bridgecrewio/checkov-action`) over the repo for Terraform security and compliance.
-
-- **`plan` – Terraform plan for Dev**
-  - Depends on `lint`.
-  - Uses **GitHub OIDC** with `aws-actions/configure-aws-credentials@v4`.
-  - Assumes a Dev role specified by `secrets.AWS_ASSUME_ROLE_DEV`.
-  - Sets `TF_VAR_environment`, `TF_VAR_aws_region`, `TF_VAR_aws_account_id`, `TF_VAR_aws_account_name`.
-  - Re‑validates JSON configs with `validate_bot_config.sh`.
-  - Runs `terraform init` and `terraform plan -out=tfplan-dev` in `bot/`.
-  - Uploads `tfplan-dev` as an artifact.
-
-- **`apply` – Terraform apply for Dev**
-  - Depends on `plan`.
-  - Only runs on **pushes** to `dev` (not on PRs).
-  - Uses the same AWS OIDC setup and variables as `plan`.
-  - Downloads the `tfplan-dev` artifact.
-  - Runs `terraform init` then `terraform apply tfplan-dev` in `bot/`.
-  - Uses a GitHub `environment: dev` to allow environment‑level protections (e.g. required approvals).
-
-### Required GitHub Secrets for Dev
-
-- **`AWS_ASSUME_ROLE_DEV`** – IAM role ARN that GitHub Actions will assume via OIDC.
-- **`AWS_REGION_DEV`** – AWS region for Dev (`eu-west-2`, etc.).
-- **`AWS_ACCOUNT_NAME_DEV`** – Human‑readable account name for tagging.
-
-> The AWS IAM role assumed by GitHub must have sufficient permissions to:
-> - Manage Lex V2 resources (bot, locales, intents, slot types, slots, versions).
-> - Create / update IAM roles and policies for Lex.
-> - Access the S3 bucket used for Terraform state (if using remote backend).
+**Releases:** [Release Please](https://github.com/googleapis/release-please/blob/main/docs/manifest-releaser.md) with `.release-please-config.json` and `.release-please-manifest.json` — register new packages there when you add bots you want versioned.
 
 ---
 
-## Security and Best Practices
+## AWS Lex V2 + Terraform: what is (and is not) fully automated
 
-- **Remote state and locking**
-  - State is configured to use an **S3 backend**, with **lock file stored in the same bucket**.
-  - This avoids local state drift and enables safe collaboration.
+Lex **Runtime** concerns (aliases, published versions pointed to by production traffic, locale builds, custom vocabulary, some association workflows) **lag** behind what the **Models** Terraform resources cover, or have **no first-class resource** in the HashiCorp AWS provider yet.
 
-- **Least‑privilege IAM**
-  - The Lex IAM role is limited to:
-    - Assuming Lex V2 service.
-    - Polly speech synthesis.
-    - CloudWatch logging for Lex log groups.
-    - Only the Lambda ARNs you explicitly provide in `lambda_arns`.
+### Covered well by Terraform (Models)
 
-- **Infrastructure validation**
-  - `terraform fmt` and `terraform validate` enforce formatting and basic correctness.
-  - `checkov` enforces security/compliance checks for Terraform code.
-  - JSON Schema validation ensures that bot definitions **conform to the contract** before any infrastructure run.
+- Bot definition, locales, NLU model structure (intents, slots, slot types) as code from JSON.
+- IAM for Lex (Polly, logging, Lambda invoke for known ARNs).
+- Lambda **invoke permissions** for Lex (module uses default **`TSTALIASID`** test alias ARN shape for `aws_lambda_permission.source_arn`; override via **`lex_bot_alias_id`** when you standardize on another alias id).
 
-- **Environment separation**
-  - This template focuses on **Dev** but is structured to scale:
-    - Separate backend config files (e.g., `infra/state/dev.config`, `infra/state/prod.config`).
-    - Separate workflows / jobs or environments for staging and production.
+### Often still manual or via AWS CLI / separate automation
+
+| Concern | Typical reality today | Practical next step |
+|---------|----------------------|---------------------|
+| **Locale NLU build** | Terraform updates DRAFT; **building** the locale model so NLU is trained may require **console** or **`build-bot-locale`** (Lex V2 API) after changes. | Add a small **post-apply script** (AWS CLI) or Step Functions / CodeBuild job triggered after Terraform. |
+| **Bot version + “live” alias** | `aws_lexv2models_bot_version` exists; **managed aliases** that customers call (e.g. production alias → stable version) are **not** fully replaced by a single well-supported **`aws_lexv2models_bot_alias`** story in all provider versions—teams often use **Console**, **CLI**, or **CloudFormation** for alias/version wiring. | Re-enable **`aws_lexv2models_bot_version`** behind **`create_version`**, output version id, then automate **CreateBotAlias** / **UpdateAlias** via CLI until provider coverage matches your needs. Track [provider issues and docs](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/lexv2models_bot). |
+| **Custom vocabulary** | Usually separate **Lex V2 feature set**; may not map 1:1 to the same Terraform resources you use for intents. | Treat vocabulary as **optional module** or **runbook**; call Vocabulary APIs from automation if you need GitOps. |
+| **Per-locale Lambda association nuance** | Models JSON + module map Lambdas to intents; **runtime alias** configuration in the console can still differ from what you expect until aliases/versions align. | Document **one** golden path: e.g. DRAFT + test alias for dev; version + named alias for prod, with explicit runbook steps. |
+
+This README is intentionally honest so you can budget **runbooks** and **follow-up automation** rather than assuming `terraform apply` alone equals a production Lex endpoint.
 
 ---
 
-## Extending the Template
+## Improvement backlog (codebase-focused)
 
-- **Add new locales**
-  - Add additional locale entries under `locales` in your bot JSON (e.g., `en_AU`, `fr_FR`).
-  - The module automatically creates locales, intents, slot types, and slots for those locales.
+High value, low ambiguity:
 
-- **Add new intents or slots**
-  - Extend the `intents` section in the JSON.
-  - Add slots with proper `slot_type`, `required`, and `prompt`.
-
-- **Add Lambda‑backed fulfillment**
-  - Deploy Lambda functions separately (e.g., with another Terraform module).
-  - Pass their ARNs via the `lambda_arns` map when calling `lexv2-bot`.
-  - Reference their logical names in `fulfillment_lambda_name` in the JSON.
-
-- **Add more CI checks**
-  - You can extend the GitHub workflow to:
-    - Run unit tests for Lambda code.
-    - Perform additional security scans (e.g., Trivy, tfsec) if desired.
+1. **Wire `create_version`** to a real `aws_lexv2models_bot_version` resource (optional `count` / `lifecycle`) and expose **`bot_arn` + version id** outputs for downstream scripts.
+2. **Scaffold quality:** Align **`tools/create-bot`** starter JSON with **`schemas/lex-bot-schema.json`** (e.g. `intent_type`, `sample_utterances`, `lambda_config` for with-lambda) so new packages validate without hand-fixing.
+3. **Post-deploy automation:** Add `scripts/` or `docs/runbooks/` with AWS CLI examples: build locale, create/update alias, point alias at version—parameterized from Terraform outputs.
+4. **`lex_bot_alias_id`:** Document per-environment values; avoid relying on **`TSTALIASID`** alone for production.
+5. **Provider drift:** Periodically re-check Terraform AWS provider for **`lexv2models`** alias / vocabulary resources and collapse manual steps when stable.
+6. **Root dev ergonomics:** Optional workspace **`package.json`** with a **`create-bot`** script that delegates to `tools/create-bot` so `npm run dev` is discoverable from the monorepo root.
 
 ---
 
-## Non‑Technical Overview (For Stakeholders)
+## Contributing and versioning
 
-- **Purpose**
-  - Provide a **repeatable, automated way** to create and update Amazon Lex V2 bots based on **simple JSON descriptions**, without requiring deep Terraform or AWS expertise.
-
-- **How it works (conceptually)**
-  1. A product or domain expert defines the **bot behavior** in a structured JSON file:
-     - Supported languages (locales).
-     - User intents (what users can ask for).
-     - Required information (slots) and prompts.
-     - Optional connections to backend systems via AWS Lambda.
-  2. The JSON is **validated automatically** to catch mistakes early.
-  3. Terraform uses this JSON to create or update the Lex bot and related AWS resources.
-  4. A **CI/CD pipeline** in GitHub ensures:
-     - Changes are reviewed.
-     - Security checks pass.
-     - Infrastructure changes are consistent and auditable.
-
-- **Benefits**
-  - **Consistency** – All bots follow the same structure and infrastructure patterns.
-  - **Safety** – Automated validation and security checks reduce runtime surprises.
-  - **Scalability** – Supports multiple locales and complex bots without manual console changes.
-  - **Traceability** – Every change is versioned in Git and deployed via CI/CD.
+- Use **Conventional Commits** on changes that should drive [Release Please](https://github.com/googleapis/release-please) bumps (`feat`, `fix`, etc.).
+- Keep **`bot-config.json`** changes schema-valid; CI and reviewers should treat schema failures as merge blockers.
+- Register new **`packages/<name>`** in **`.release-please-config.json`** and **`.release-please-manifest.json`** when that bot should be versioned as its own component.
 
 ---
 
-## Getting Help
+## References
 
-- For questions about **bot JSON structure**, refer to `modules/lexv2-bot/schema.json` and the examples in `bot/examples/`.
-- For issues with **validation scripts**, see `bot/validate_bot_config.sh` and `bot/validate_bot_config.py`.
-- For Terraform or AWS Lex V2 specific behavior, consult:
-  - Terraform AWS provider docs for `aws_lexv2models_*` resources.
-  - AWS Lex V2 documentation for intents, slots, and locales.
+- [Amazon Lex V2 documentation](https://docs.aws.amazon.com/lexv2/latest/dg/what-is.html) (Models vs runtime, building locales, aliases, versions)
+- [Terraform AWS provider — Lex V2 Models resources](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/lexv2models_bot)
+- [Conventional Commits](https://www.conventionalcommits.org/)
 
+---
+
+## License and support
+
+Internal product repository; add your org’s license and support contacts here as appropriate.
