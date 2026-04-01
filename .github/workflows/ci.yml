@@ -71,6 +71,8 @@ jobs:
           token: ${{ secrets.RELEASE_PLEASE_TOKEN || github.token }}
           config-file: .release-please-config.json
           manifest-file: .release-please-manifest.json
+          # Per-package Git tags and GitHub Releases (e.g. insurance-bot-v1.2.3), avoiding collisions.
+          include-component-in-tag: true
 
       - name: Log release-please outcome
         if: always()

@@ -9,6 +9,11 @@
       "release-type": "simple",
       "changelog-path": "CHANGELOG.md",
       "version-file": "version.txt"
+    },
+    "packages/ecommerce-bot": {
+      "release-type": "simple",
+      "changelog-path": "CHANGELOG.md",
+      "version-file": "version.txt"
     }
   }
 }
