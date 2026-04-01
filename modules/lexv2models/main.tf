@@ -122,14 +122,23 @@ resource "aws_lexv2models_intent" "intents" {
   #   }
   # }
 
+  # dynamic "fulfillment_code_hook" {
+  #   for_each = (
+  #     each.value.fulfillment_lambda_name != null &&
+  #     contains(keys(local.lambda_arns_effective), each.value.fulfillment_lambda_name)
+  #   ) ? [1] : []
+  #   content { enabled = true }
+  # }
+
   dynamic "fulfillment_code_hook" {
+    # Nested condition: Terraform may evaluate both operands of &&, and contains() rejects null.
     for_each = (
-      each.value.fulfillment_lambda_name != null &&
-      contains(keys(local.lambda_arns_effective), each.value.fulfillment_lambda_name)
-    ) ? [1] : []
+      each.value.fulfillment_lambda_name != null ?
+      (contains(keys(local.lambda_arns_effective), each.value.fulfillment_lambda_name) ? [1] : []) :
+      []
+    )
     content { enabled = true }
   }
-
   dynamic "sample_utterance" {
     for_each = each.value.sample_utterances
     content { utterance = sample_utterance.value }
@@ -146,11 +155,26 @@ resource "aws_lexv2models_intent" "intents" {
   #   }
   # }
 
-dynamic "initial_response_setting" {
+  # dynamic "initial_response_setting" {
+  #     for_each = (
+  #       each.value.fulfillment_lambda_name != null &&
+  #       contains(keys(local.lambda_arns_effective), each.value.fulfillment_lambda_name)
+  #     ) ? [1] : []
+
+  #     content {
+  #       code_hook {
+  #         active                      = true
+  #         enable_code_hook_invocation = true
+  #       }
+  #     }
+  #   }
+
+  dynamic "initial_response_setting" {
     for_each = (
-      each.value.fulfillment_lambda_name != null &&
-      contains(keys(local.lambda_arns_effective), each.value.fulfillment_lambda_name)
-    ) ? [1] : []
+      each.value.fulfillment_lambda_name != null ?
+      (contains(keys(local.lambda_arns_effective), each.value.fulfillment_lambda_name) ? [1] : []) :
+      []
+    )
 
     content {
       code_hook {
@@ -159,7 +183,6 @@ dynamic "initial_response_setting" {
       }
     }
   }
-
   dynamic "confirmation_setting" {
     for_each = each.value.confirmation_prompt != null ? [each.value.confirmation_prompt] : []
     content {
