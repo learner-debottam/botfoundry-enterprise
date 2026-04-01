@@ -114,12 +114,20 @@ resource "aws_lexv2models_intent" "intents" {
   #   content { enabled = true }
   # }
 
-  dynamic "fulfillment_code_hook" {
-    for_each = try(var.lambda_functions[each.value.fulfillment_lambda_name].arn, null) != null ? [1] : []
+  # dynamic "fulfillment_code_hook" {
+  #   for_each = try(var.lambda_functions[each.value.fulfillment_lambda_name].arn, null) != null ? [1] : []
 
-    content {
-      enabled = true
-    }
+  #   content {
+  #     enabled = true
+  #   }
+  # }
+
+  dynamic "fulfillment_code_hook" {
+    for_each = (
+      each.value.fulfillment_lambda_name != null &&
+      contains(keys(local.lambda_arns_effective), each.value.fulfillment_lambda_name)
+    ) ? [1] : []
+    content { enabled = true }
   }
 
   dynamic "sample_utterance" {
@@ -127,8 +135,22 @@ resource "aws_lexv2models_intent" "intents" {
     content { utterance = sample_utterance.value }
   }
 
-  dynamic "initial_response_setting" {
-    for_each = each.value.fulfillment_lambda_name != null && length(var.lambda_arns) > 0 ? [1] : []
+  # dynamic "initial_response_setting" {
+  #   for_each = each.value.fulfillment_lambda_name != null && length(var.lambda_arns) > 0 ? [1] : []
+
+  #   content {
+  #     code_hook {
+  #       active                      = true
+  #       enable_code_hook_invocation = true
+  #     }
+  #   }
+  # }
+
+dynamic "initial_response_setting" {
+    for_each = (
+      each.value.fulfillment_lambda_name != null &&
+      contains(keys(local.lambda_arns_effective), each.value.fulfillment_lambda_name)
+    ) ? [1] : []
 
     content {
       code_hook {
